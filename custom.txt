@@ -1,0 +1,83 @@
+posawesome/posawesome/api/posapp.py
+
+Address creation
+@frappe.whitelist()
+def create_customer(customer_name, tax_id, mobile_no, email_id, address, city):
+    if not frappe.db.exists("Customer", {"customer_name": customer_name}):
+        customer = frappe.get_doc(
+            {
+                "doctype": "Customer",
+                "customer_name": customer_name,
+                "tax_id": tax_id,
+                "mobile_no": mobile_no,
+                "email_id": email_id,
+            }
+        ).insert(ignore_permissions=True)
+
+        addr_doc = frappe.new_doc("Address")
+        addr_doc.address_line1= address
+        addr_doc.city = city
+        addr_doc.append("links", {"link_doctype": "Customer", "link_name": customer.name})
+
+        addr_doc.flags.ignore_mandatory = True
+        addr_doc.save()
+        frappe.set_value(
+            "Customer", customer.name, "customer_primary_address", addr_doc.name
+        )
+        return customer
+        
+        
+posawesome/public/js/posapp/components/pos/NewCustomer.vue
+
+Field customization
+        
+       const args = {
+            customer_name: this.customer_name,
+            tax_id: this.tax_id,
+            mobile_no: this.mobile_no,
+            email_id: this.email_id,
+            address: this.address,
+            city: this.city
+        };
+        frappe.call({
+          method: "posawesome.posawesome.api.posapp.create_customer",
+          args: args,
+          callback: (r) => {
+            if (!r.exc && r.message.name) {
+              evntBus.$emit("show_mesage", {
+                text: "Customer contact created successfully.",
+                color: "success",
+              });
+              args.name = r.message.name
+              frappe.utils.play_sound("submit");
+              evntBus.$emit("add_customer_to_list", args);
+              evntBus.$emit("set_customer", r.message.name);
+              this.customer_name = "";
+              this.tax_id = "";
+              this.mobile_no = "";
+              this.email_id = "";
+              this.address = "";
+              this.city = "";
+            }
+
+
+<v-col cols="6">
+                <v-text-field
+                  dense
+                  color="indigo"
+                  label="Address"
+                  background-color="white"
+                  hide-details
+                  v-model="address"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="6">
+                <v-text-field
+                  dense
+                  color="indigo"
+                  label="City"
+                  background-color="white"
+                  hide-details
+                  v-model="city"
+                ></v-text-field>
+              </v-col>
